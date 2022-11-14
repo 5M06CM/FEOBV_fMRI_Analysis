@@ -1,0 +1,62 @@
+library(tidyverse)
+library(rprime)
+
+data <- read.delim("~/Documents/fMRI_Analysis/subjects/002/FEOBV002_run1.txt",skip=3)
+semi_clean <- data %>% select(Slide3.OnsetTime, GetReady.OnsetTime, ListType, GoodBye.OnsetTime) 
+
+semi_clean$Onset <- ((data$GetReady.OnsetTime - data[1, "GetReady.OnsetTime"])/1000)
+semi_clean <- subset(semi_clean, select = -c(Slide3.OnsetTime, GetReady.OnsetTime, GoodBye.OnsetTime) )
+
+semi_clean$Weight <- 1
+
+colnames(semi_clean)[colnames(semi_clean) == 'ListType'] <- 'Name'
+
+#Now you want to remove all the unnecessary numbers (there's 72 rows, and 
+#we only need 6- one for each block).
+#So you first assign a list of numbers for each of the rows in semi_clean,
+#then you you say that for the variable rows, I want to include everything from 
+#row number 2 and onwards till you reach the end
+#Next you make an empty variable called droprows (you'll fill it later).
+#Next you make a for loop that says, for everything in the variable "rows", 
+#look to see if each value in the column onset is the same as the one before,
+#and add it to the variable droprows. Later, edit a semi-clean so that
+#any row that had fallen into droprows and delete it.
+#Essentially, it ends up keeping only the 1st instance of that number
+rows <- seq(nrow(semi_clean))
+rows <- rows[2:length(rows)]
+droprows <- vector()
+  
+  for (r in rows){
+    if (semi_clean[r, 'Onset'] == semi_clean[r-1, 'Onset']) {
+      droprows <- c(droprows, r)} 
+  }
+  
+semi_clean <- semi_clean[-1*droprows, ]
+
+Duration <- c()    
+
+for (i in 1:(length(unique(data$GetReady.OnsetTime)))-1){
+Duration[length(Duration) + 1] <- ((unique(data$GetReady.OnsetTime)[i+1] - unique(data$GetReady.OnsetTime)[i])/1000)}
+
+last_dur <- (unique(data$GoodBye.OnsetTime) - unique(data$GetReady.OnsetTime)[length(unique(data$GetReady.OnsetTime))])/1000
+semi_clean$Duration <- c(Duration,last_dur)
+
+
+semi_clean <- semi_clean %>%
+  mutate(Type = case_when(
+    startsWith(Name, "2") ~ 3,
+    startsWith(Name, "1") ~ 2,
+    startsWith(Name, "0") ~ 1,
+  ))
+
+
+Clean <- semi_clean[, c("Onset", "Duration", "Type", "Weight", "Name")]
+
+write.table(Clean, file="/Users/colekamasama/Documents/fMRI_Analysis/subjects/002/wm_run1.csv", row.names=FALSE, col.names = FALSE, sep='\t') 
+write.table(Clean, file="/Users/colekamasama/Documents/fMRI_Analysis/subjects/002/wm_run1.par", row.names=FALSE, col.names = FALSE, sep='\t') 
+
+
+
+
+
+
